@@ -1,0 +1,480 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Health Monitoring Dashboard</title>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <style>
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      font-family: Arial, sans-serif;
+      background: #f4f7fb;
+      color: #1f2937;
+    }
+
+    .container {
+      max-width: 1200px;
+      margin: 0 auto;
+      padding: 24px;
+    }
+
+    .header {
+      text-align: center;
+      margin-bottom: 24px;
+    }
+
+    .header h1 {
+      margin: 0;
+      font-size: 32px;
+      color: #111827;
+    }
+
+    .header p {
+      margin-top: 8px;
+      color: #6b7280;
+      font-size: 15px;
+    }
+
+    .status-banner {
+      border-radius: 18px;
+      padding: 18px 20px;
+      text-align: center;
+      font-size: 18px;
+      font-weight: bold;
+      margin-bottom: 24px;
+      box-shadow: 0 6px 18px rgba(0, 0, 0, 0.08);
+    }
+
+    .status-ok {
+      background: #dcfce7;
+      color: #166534;
+    }
+
+    .status-warning {
+      background: #fef3c7;
+      color: #92400e;
+    }
+
+    .status-critical {
+      background: #fee2e2;
+      color: #991b1b;
+    }
+
+    .status-info {
+      background: #dbeafe;
+      color: #1d4ed8;
+    }
+
+    .cards {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+      gap: 18px;
+      margin-bottom: 28px;
+    }
+
+    .card {
+      background: #ffffff;
+      border-radius: 20px;
+      padding: 20px;
+      box-shadow: 0 8px 20px rgba(0, 0, 0, 0.06);
+      transition: transform 0.2s ease;
+    }
+
+    .card:hover {
+      transform: translateY(-2px);
+    }
+
+    .card-label {
+      font-size: 14px;
+      color: #6b7280;
+      margin-bottom: 10px;
+    }
+
+    .card-value {
+      font-size: 30px;
+      font-weight: bold;
+      color: #111827;
+      line-height: 1.2;
+    }
+
+    .good {
+      color: #15803d;
+    }
+
+    .warn {
+      color: #b45309;
+    }
+
+    .bad {
+      color: #b91c1c;
+    }
+
+    .section {
+      background: white;
+      border-radius: 20px;
+      padding: 22px;
+      margin-bottom: 24px;
+      box-shadow: 0 8px 20px rgba(0, 0, 0, 0.06);
+    }
+
+    .section h2 {
+      margin-top: 0;
+      margin-bottom: 18px;
+      font-size: 20px;
+      color: #111827;
+    }
+
+    .chart-grid {
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: 20px;
+    }
+
+    .chart-box {
+      background: #fafbff;
+      border-radius: 16px;
+      padding: 16px;
+      border: 1px solid #e5e7eb;
+    }
+
+    .chart-title {
+      text-align: left;
+      font-size: 15px;
+      font-weight: bold;
+      color: #374151;
+      margin-bottom: 12px;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      overflow: hidden;
+    }
+
+    th, td {
+      padding: 12px;
+      text-align: center;
+      border-bottom: 1px solid #e5e7eb;
+      font-size: 14px;
+    }
+
+    th {
+      background: #eef2ff;
+      color: #374151;
+      font-weight: bold;
+    }
+
+    tr:hover {
+      background: #f9fafb;
+    }
+
+    .pill {
+      display: inline-block;
+      padding: 5px 10px;
+      border-radius: 999px;
+      font-size: 12px;
+      font-weight: bold;
+    }
+
+    .pill-ok {
+      background: #dcfce7;
+      color: #166534;
+    }
+
+    .pill-warning {
+      background: #fef3c7;
+      color: #92400e;
+    }
+
+    .pill-critical {
+      background: #fee2e2;
+      color: #991b1b;
+    }
+
+    .pill-info {
+      background: #dbeafe;
+      color: #1d4ed8;
+    }
+
+    @media (max-width: 768px) {
+      .card-value {
+        font-size: 24px;
+      }
+
+      th, td {
+        font-size: 12px;
+        padding: 8px;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="header">
+      <h1>Health Monitoring Dashboard</h1>
+      <p>Live cloud monitoring with clear abnormal result highlighting</p>
+    </div>
+
+    <div id="statusBox" class="status-banner status-info">Waiting for data...</div>
+
+    <div class="cards">
+      <div class="card">
+        <div class="card-label">Skin Temperature</div>
+        <div id="skinTemp" class="card-value">--</div>
+      </div>
+
+      <div class="card">
+        <div class="card-label">Estimated Body Temperature</div>
+        <div id="estimatedTemp" class="card-value">--</div>
+      </div>
+
+      <div class="card">
+        <div class="card-label">Heart Rate</div>
+        <div id="heartRate" class="card-value">--</div>
+      </div>
+
+      <div class="card">
+        <div class="card-label">SpO2</div>
+        <div id="spo2" class="card-value">--</div>
+      </div>
+
+      <div class="card">
+        <div class="card-label">Average IR</div>
+        <div id="avgIR" class="card-value">--</div>
+      </div>
+
+      <div class="card">
+        <div class="card-label">Measured At</div>
+        <div id="measuredAt" class="card-value" style="font-size:20px;">--</div>
+      </div>
+    </div>
+
+    <div class="section">
+      <h2>Trend Charts</h2>
+      <div class="chart-grid">
+        <div class="chart-box">
+          <div class="chart-title">Estimated Body Temperature Trend</div>
+          <canvas id="tempChart"></canvas>
+        </div>
+
+        <div class="chart-box">
+          <div class="chart-title">Heart Rate Trend</div>
+          <canvas id="hrChart"></canvas>
+        </div>
+
+        <div class="chart-box">
+          <div class="chart-title">SpO2 Trend</div>
+          <canvas id="spo2Chart"></canvas>
+        </div>
+      </div>
+    </div>
+
+    <div class="section">
+      <h2>Recent Measurements</h2>
+      <table>
+        <thead>
+          <tr>
+            <th>Time</th>
+            <th>Skin Temp</th>
+            <th>Estimated Temp</th>
+            <th>Heart Rate</th>
+            <th>SpO2</th>
+            <th>Status</th>
+          </tr>
+        </thead>
+        <tbody id="historyTable">
+          <tr><td colspan="6">No readings yet</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <script>
+    const latestURL = "https://health-monitoring-system-f9298-default-rtdb.europe-west1.firebasedatabase.app/braceletMonitor/latest.json";
+    const historyURL = "https://health-monitoring-system-f9298-default-rtdb.europe-west1.firebasedatabase.app/braceletMonitor/history.json";
+
+    function setStatusBanner(status, message) {
+      const box = document.getElementById("statusBox");
+      box.textContent = message || "No status available";
+      box.className = "status-banner";
+
+      if (status === "OK") {
+        box.classList.add("status-ok");
+      } else if (status === "WARNING") {
+        box.classList.add("status-warning");
+      } else if (status === "CRITICAL") {
+        box.classList.add("status-critical");
+      } else {
+        box.classList.add("status-info");
+      }
+    }
+
+    function valueClass(type, value) {
+      if (value === null || value === undefined) return "";
+
+      if (type === "temp") {
+        if (value > 38.5 || value < 35.0) return "bad";
+        if (value > 37.8) return "warn";
+        return "good";
+      }
+
+      if (type === "hr") {
+        if (value < 60 || value > 100) return "bad";
+        return "good";
+      }
+
+      if (type === "spo2") {
+        if (value < 90) return "bad";
+        if (value < 95) return "warn";
+        return "good";
+      }
+
+      return "";
+    }
+
+    function pillClass(status) {
+      if (status === "OK") return "pill pill-ok";
+      if (status === "WARNING") return "pill pill-warning";
+      if (status === "CRITICAL") return "pill pill-critical";
+      return "pill pill-info";
+    }
+
+    const tempChart = new Chart(document.getElementById("tempChart"), {
+      type: "line",
+      data: {
+        labels: [],
+        datasets: [{
+          label: "Estimated Temp (°C)",
+          data: [],
+          borderWidth: 2,
+          tension: 0.3
+        }]
+      },
+      options: {
+        responsive: true,
+        animation: false
+      }
+    });
+
+    const hrChart = new Chart(document.getElementById("hrChart"), {
+      type: "line",
+      data: {
+        labels: [],
+        datasets: [{
+          label: "Heart Rate (bpm)",
+          data: [],
+          borderWidth: 2,
+          tension: 0.3
+        }]
+      },
+      options: {
+        responsive: true,
+        animation: false
+      }
+    });
+
+    const spo2Chart = new Chart(document.getElementById("spo2Chart"), {
+      type: "line",
+      data: {
+        labels: [],
+        datasets: [{
+          label: "SpO2 (%)",
+          data: [],
+          borderWidth: 2,
+          tension: 0.3
+        }]
+      },
+      options: {
+        responsive: true,
+        animation: false
+      }
+    });
+
+    async function loadLatest() {
+      const response = await fetch(latestURL);
+      const data = await response.json();
+      if (!data) return;
+
+      const skinTemp = document.getElementById("skinTemp");
+      const estimatedTemp = document.getElementById("estimatedTemp");
+      const heartRate = document.getElementById("heartRate");
+      const spo2 = document.getElementById("spo2");
+
+      skinTemp.textContent = data.skinTemp !== undefined ? `${data.skinTemp} °C` : "Invalid";
+      estimatedTemp.textContent = data.estimatedTemp !== undefined ? `${data.estimatedTemp} °C` : "Invalid";
+      heartRate.textContent = data.heartRate !== undefined ? `${data.heartRate} bpm` : "Invalid";
+      spo2.textContent = data.spo2 !== undefined ? `${data.spo2} %` : "Invalid";
+
+      document.getElementById("avgIR").textContent = data.avgIR !== undefined ? data.avgIR : "Invalid";
+      document.getElementById("measuredAt").textContent = data.measuredAt || "--";
+
+      skinTemp.className = "card-value";
+      estimatedTemp.className = "card-value " + valueClass("temp", data.estimatedTemp);
+      heartRate.className = "card-value " + valueClass("hr", data.heartRate);
+      spo2.className = "card-value " + valueClass("spo2", data.spo2);
+
+      setStatusBanner(data.status, data.message);
+    }
+
+    async function loadHistory() {
+      const response = await fetch(historyURL);
+      const data = await response.json();
+
+      if (!data) {
+        document.getElementById("historyTable").innerHTML =
+          '<tr><td colspan="6">No readings yet</td></tr>';
+        return;
+      }
+
+      const entries = Object.entries(data)
+        .map(([key, value]) => ({ key, ...value }))
+        .sort((a, b) => Number(a.key) - Number(b.key));
+
+      const last10 = entries.slice(-10);
+
+      const labels = last10.map(item => item.measuredAt || "--");
+
+      tempChart.data.labels = labels;
+      tempChart.data.datasets[0].data = last10.map(item => item.estimatedTemp ?? null);
+      tempChart.update();
+
+      hrChart.data.labels = labels;
+      hrChart.data.datasets[0].data = last10.map(item => item.heartRate ?? null);
+      hrChart.update();
+
+      spo2Chart.data.labels = labels;
+      spo2Chart.data.datasets[0].data = last10.map(item => item.spo2 ?? null);
+      spo2Chart.update();
+
+      document.getElementById("historyTable").innerHTML = last10.slice().reverse().map(item => `
+        <tr>
+          <td>${item.measuredAt ?? "--"}</td>
+          <td class="${valueClass("temp", item.skinTemp)}">${item.skinTemp ?? "Invalid"} °C</td>
+          <td class="${valueClass("temp", item.estimatedTemp)}">${item.estimatedTemp ?? "Invalid"} °C</td>
+          <td class="${valueClass("hr", item.heartRate)}">${item.heartRate ?? "Invalid"} bpm</td>
+          <td class="${valueClass("spo2", item.spo2)}">${item.spo2 ?? "Invalid"} %</td>
+          <td><span class="${pillClass(item.status)}">${item.status ?? "INFO"}</span></td>
+        </tr>
+      `).join("");
+    }
+
+    async function loadAll() {
+      try {
+        await loadLatest();
+        await loadHistory();
+      } catch (error) {
+        setStatusBanner("CRITICAL", "Error loading Firebase data");
+        console.error(error);
+      }
+    }
+
+    loadAll();
+    setInterval(loadAll, 5000);
+  </script>
+</body>
+</html>
