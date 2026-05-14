@@ -48,6 +48,7 @@
       font-weight: bold;
       margin-bottom: 24px;
       box-shadow: 0 6px 18px rgba(0, 0, 0, 0.08);
+      white-space: pre-line;
     }
 
     .status-ok {
@@ -104,14 +105,17 @@
 
     .good {
       color: #15803d;
+      font-weight: bold;
     }
 
     .warn {
       color: #b45309;
+      font-weight: bold;
     }
 
     .bad {
       color: #b91c1c;
+      font-weight: bold;
     }
 
     .section {
@@ -150,6 +154,11 @@
       margin-bottom: 12px;
     }
 
+    .table-wrapper {
+      width: 100%;
+      overflow-x: auto;
+    }
+
     table {
       width: 100%;
       border-collapse: collapse;
@@ -161,6 +170,7 @@
       text-align: center;
       border-bottom: 1px solid #e5e7eb;
       font-size: 14px;
+      vertical-align: middle;
     }
 
     th {
@@ -201,6 +211,24 @@
       color: #1d4ed8;
     }
 
+    .alerts-cell {
+      max-width: 220px;
+      white-space: pre-line;
+      font-size: 12px;
+      font-weight: bold;
+      color: #92400e;
+    }
+
+    .type-pill {
+      display: inline-block;
+      padding: 4px 8px;
+      border-radius: 999px;
+      font-size: 11px;
+      font-weight: bold;
+      background: #e5e7eb;
+      color: #374151;
+    }
+
     @media (max-width: 768px) {
       .card-value {
         font-size: 24px;
@@ -209,6 +237,10 @@
       th, td {
         font-size: 12px;
         padding: 8px;
+      }
+
+      .alerts-cell {
+        max-width: 160px;
       }
     }
   </style>
@@ -276,21 +308,25 @@
 
     <div class="section">
       <h2>Recent Measurements</h2>
-      <table>
-        <thead>
-          <tr>
-            <th>Time</th>
-            <th>Skin Temp</th>
-            <th>Estimated Temp</th>
-            <th>Heart Rate</th>
-            <th>SpO2</th>
-            <th>Status</th>
-          </tr>
-        </thead>
-        <tbody id="historyTable">
-          <tr><td colspan="6">No readings yet</td></tr>
-        </tbody>
-      </table>
+      <div class="table-wrapper">
+        <table>
+          <thead>
+            <tr>
+              <th>Time</th>
+              <th>Type</th>
+              <th>Skin Temp</th>
+              <th>Estimated Temp</th>
+              <th>Heart Rate</th>
+              <th>SpO2</th>
+              <th>Status</th>
+              <th>Alerts</th>
+            </tr>
+          </thead>
+          <tbody id="historyTable">
+            <tr><td colspan="8">No readings yet</td></tr>
+          </tbody>
+        </table>
+      </div>
     </div>
   </div>
 
@@ -298,9 +334,15 @@
     const latestURL = "https://health-monitoring-system-f9298-default-rtdb.europe-west1.firebasedatabase.app/braceletMonitor/latest.json";
     const historyURL = "https://health-monitoring-system-f9298-default-rtdb.europe-west1.firebasedatabase.app/braceletMonitor/history.json";
 
-    function setStatusBanner(status, message) {
+    function setStatusBanner(status, message, alerts) {
       const box = document.getElementById("statusBox");
-      box.textContent = message || "No status available";
+
+      if (alerts && alerts !== "No alerts" && alerts !== "No live alerts") {
+        box.textContent = `${status || "INFO"}: ${message || "Alert"}\n${alerts}`;
+      } else {
+        box.textContent = message || "No status available";
+      }
+
       box.className = "status-banner";
 
       if (status === "OK") {
@@ -315,22 +357,26 @@
     }
 
     function valueClass(type, value) {
-      if (value === null || value === undefined) return "";
+      const numberValue = Number(value);
+
+      if (value === null || value === undefined || Number.isNaN(numberValue) || numberValue < 0) {
+        return "bad";
+      }
 
       if (type === "temp") {
-        if (value > 38.5 || value < 35.0) return "bad";
-        if (value > 37.8) return "warn";
+        if (numberValue > 38.5 || numberValue < 35.0) return "bad";
+        if (numberValue > 37.8) return "warn";
         return "good";
       }
 
       if (type === "hr") {
-        if (value < 60 || value > 100) return "bad";
+        if (numberValue < 60 || numberValue > 100) return "bad";
         return "good";
       }
 
       if (type === "spo2") {
-        if (value < 90) return "bad";
-        if (value < 95) return "warn";
+        if (numberValue < 90) return "bad";
+        if (numberValue < 95) return "warn";
         return "good";
       }
 
@@ -342,6 +388,30 @@
       if (status === "WARNING") return "pill pill-warning";
       if (status === "CRITICAL") return "pill pill-critical";
       return "pill pill-info";
+    }
+
+    function displayValue(value, unit) {
+      if (value === null || value === undefined) {
+        return `Invalid ${unit}`;
+      }
+
+      return `${value} ${unit}`;
+    }
+
+    function getReadingTime(item) {
+      if (item.timestamp !== undefined && item.timestamp !== null && !Number.isNaN(Number(item.timestamp))) {
+        return Number(item.timestamp);
+      }
+
+      if (item.measuredAt) {
+        const parsed = new Date(item.measuredAt).getTime();
+
+        if (!Number.isNaN(parsed)) {
+          return parsed;
+        }
+      }
+
+      return 0;
     }
 
     const tempChart = new Chart(document.getElementById("tempChart"), {
@@ -398,6 +468,7 @@
     async function loadLatest() {
       const response = await fetch(latestURL);
       const data = await response.json();
+
       if (!data) return;
 
       const skinTemp = document.getElementById("skinTemp");
@@ -413,12 +484,12 @@
       document.getElementById("avgIR").textContent = data.avgIR !== undefined ? data.avgIR : "Invalid";
       document.getElementById("measuredAt").textContent = data.measuredAt || "--";
 
-      skinTemp.className = "card-value";
+      skinTemp.className = "card-value " + valueClass("temp", data.skinTemp);
       estimatedTemp.className = "card-value " + valueClass("temp", data.estimatedTemp);
       heartRate.className = "card-value " + valueClass("hr", data.heartRate);
       spo2.className = "card-value " + valueClass("spo2", data.spo2);
 
-      setStatusBanner(data.status, data.message);
+      setStatusBanner(data.status, data.message, data.alerts);
     }
 
     async function loadHistory() {
@@ -427,54 +498,54 @@
 
       if (!data) {
         document.getElementById("historyTable").innerHTML =
-          '<tr><td colspan="6">No readings yet</td></tr>';
+          '<tr><td colspan="8">No readings yet</td></tr>';
         return;
       }
 
       const entries = Object.entries(data)
-        .map(([key, value]) => ({ key, ...value }))
-        .sort((a, b) => Number(a.key) - Number(b.key));
+        .map(([key, value]) => ({ key, ...value }));
 
-      const last10 = entries.slice(-10);
+      // IMPORTANT:
+      // Newest measurement first.
+      // This uses timestamp from ESP32 first, then measuredAt as backup.
+      entries.sort((a, b) => getReadingTime(b) - getReadingTime(a));
 
-      const labels = last10.map(item => item.measuredAt || "--");
+      // Table: newest readings at the top
+      const newest10 = entries.slice(0, 10);
+
+      // Charts: oldest to newest so the graph moves left to right
+      const chartItems = newest10.slice().reverse();
+
+      const labels = chartItems.map(item => item.measuredAt || "--");
 
       tempChart.data.labels = labels;
-      tempChart.data.datasets[0].data = last10.map(item => item.estimatedTemp ?? null);
+      tempChart.data.datasets[0].data = chartItems.map(item => {
+        const value = Number(item.estimatedTemp);
+        return value >= 0 ? value : null;
+      });
       tempChart.update();
 
       hrChart.data.labels = labels;
-      hrChart.data.datasets[0].data = last10.map(item => item.heartRate ?? null);
+      hrChart.data.datasets[0].data = chartItems.map(item => {
+        const value = Number(item.heartRate);
+        return value >= 0 ? value : null;
+      });
       hrChart.update();
 
       spo2Chart.data.labels = labels;
-      spo2Chart.data.datasets[0].data = last10.map(item => item.spo2 ?? null);
+      spo2Chart.data.datasets[0].data = chartItems.map(item => {
+        const value = Number(item.spo2);
+        return value >= 0 ? value : null;
+      });
       spo2Chart.update();
 
-      document.getElementById("historyTable").innerHTML = last10.slice().reverse().map(item => `
+      document.getElementById("historyTable").innerHTML = newest10.map(item => `
         <tr>
           <td>${item.measuredAt ?? "--"}</td>
-          <td class="${valueClass("temp", item.skinTemp)}">${item.skinTemp ?? "Invalid"} °C</td>
-          <td class="${valueClass("temp", item.estimatedTemp)}">${item.estimatedTemp ?? "Invalid"} °C</td>
-          <td class="${valueClass("hr", item.heartRate)}">${item.heartRate ?? "Invalid"} bpm</td>
-          <td class="${valueClass("spo2", item.spo2)}">${item.spo2 ?? "Invalid"} %</td>
+          <td><span class="type-pill">${item.type ?? "READING"}</span></td>
+          <td class="${valueClass("temp", item.skinTemp)}">${displayValue(item.skinTemp, "°C")}</td>
+          <td class="${valueClass("temp", item.estimatedTemp)}">${displayValue(item.estimatedTemp, "°C")}</td>
+          <td class="${valueClass("hr", item.heartRate)}">${displayValue(item.heartRate, "bpm")}</td>
+          <td class="${valueClass("spo2", item.spo2)}">${displayValue(item.spo2, "%")}</td>
           <td><span class="${pillClass(item.status)}">${item.status ?? "INFO"}</span></td>
-        </tr>
-      `).join("");
-    }
-
-    async function loadAll() {
-      try {
-        await loadLatest();
-        await loadHistory();
-      } catch (error) {
-        setStatusBanner("CRITICAL", "Error loading Firebase data");
-        console.error(error);
-      }
-    }
-
-    loadAll();
-    setInterval(loadAll, 5000);
-  </script>
-</body>
-</html>
+          <td class="alerts-cell">${item.alerts
