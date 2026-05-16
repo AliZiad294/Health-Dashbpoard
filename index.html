@@ -5,6 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Health Monitoring Dashboard</title>
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
   <style>
     * {
       box-sizing: border-box;
@@ -71,6 +72,58 @@
       color: #1d4ed8;
     }
 
+    .section {
+      background: white;
+      border-radius: 20px;
+      padding: 22px;
+      margin-bottom: 24px;
+      box-shadow: 0 8px 20px rgba(0, 0, 0, 0.06);
+    }
+
+    .section h2 {
+      margin-top: 0;
+      margin-bottom: 18px;
+      font-size: 20px;
+      color: #111827;
+    }
+
+    .control-row {
+      display: flex;
+      gap: 12px;
+      flex-wrap: wrap;
+      align-items: center;
+    }
+
+    .control-btn {
+      padding: 12px 22px;
+      border: none;
+      border-radius: 12px;
+      color: white;
+      font-weight: bold;
+      cursor: pointer;
+      font-size: 14px;
+    }
+
+    .start-btn {
+      background: #16a34a;
+    }
+
+    .stop-btn {
+      background: #dc2626;
+    }
+
+    .control-btn:hover {
+      opacity: 0.9;
+    }
+
+    #testStateBox {
+      padding: 12px 18px;
+      border-radius: 12px;
+      background: #e5e7eb;
+      color: #374151;
+      font-weight: bold;
+    }
+
     .cards {
       display: grid;
       grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
@@ -116,21 +169,6 @@
     .bad {
       color: #b91c1c;
       font-weight: bold;
-    }
-
-    .section {
-      background: white;
-      border-radius: 20px;
-      padding: 22px;
-      margin-bottom: 24px;
-      box-shadow: 0 8px 20px rgba(0, 0, 0, 0.06);
-    }
-
-    .section h2 {
-      margin-top: 0;
-      margin-bottom: 18px;
-      font-size: 20px;
-      color: #111827;
     }
 
     .chart-grid {
@@ -211,14 +249,6 @@
       color: #1d4ed8;
     }
 
-    .alerts-cell {
-      max-width: 220px;
-      white-space: pre-line;
-      font-size: 12px;
-      font-weight: bold;
-      color: #92400e;
-    }
-
     .type-pill {
       display: inline-block;
       padding: 4px 8px;
@@ -227,6 +257,14 @@
       font-weight: bold;
       background: #e5e7eb;
       color: #374151;
+    }
+
+    .alerts-cell {
+      max-width: 240px;
+      white-space: pre-line;
+      font-size: 12px;
+      font-weight: bold;
+      color: #92400e;
     }
 
     @media (max-width: 768px) {
@@ -245,6 +283,7 @@
     }
   </style>
 </head>
+
 <body>
   <div class="container">
     <div class="header">
@@ -253,6 +292,24 @@
     </div>
 
     <div id="statusBox" class="status-banner status-info">Waiting for data...</div>
+
+    <div class="section">
+      <h2>Test Control</h2>
+
+      <div class="control-row">
+        <button onclick="startTest()" class="control-btn start-btn">
+          START TEST
+        </button>
+
+        <button onclick="stopTest()" class="control-btn stop-btn">
+          STOP TEST
+        </button>
+
+        <div id="testStateBox">
+          Test Status: Loading...
+        </div>
+      </div>
+    </div>
 
     <div class="cards">
       <div class="card">
@@ -288,6 +345,7 @@
 
     <div class="section">
       <h2>Trend Charts</h2>
+
       <div class="chart-grid">
         <div class="chart-box">
           <div class="chart-title">Estimated Body Temperature Trend</div>
@@ -308,6 +366,7 @@
 
     <div class="section">
       <h2>Recent Measurements</h2>
+
       <div class="table-wrapper">
         <table>
           <thead>
@@ -322,8 +381,11 @@
               <th>Alerts</th>
             </tr>
           </thead>
+
           <tbody id="historyTable">
-            <tr><td colspan="8">No readings yet</td></tr>
+            <tr>
+              <td colspan="8">No readings yet</td>
+            </tr>
           </tbody>
         </table>
       </div>
@@ -333,6 +395,7 @@
   <script>
     const latestURL = "https://health-monitoring-system-f9298-default-rtdb.europe-west1.firebasedatabase.app/braceletMonitor/latest.json";
     const historyURL = "https://health-monitoring-system-f9298-default-rtdb.europe-west1.firebasedatabase.app/braceletMonitor/history.json";
+    const controlURL = "https://health-monitoring-system-f9298-default-rtdb.europe-west1.firebasedatabase.app/braceletMonitor/control/testRunning.json";
 
     function setStatusBanner(status, message, alerts) {
       const box = document.getElementById("statusBox");
@@ -412,6 +475,47 @@
       }
 
       return 0;
+    }
+
+    function updateTestStateBox(isRunning) {
+      const box = document.getElementById("testStateBox");
+
+      if (!box) return;
+
+      if (isRunning) {
+        box.textContent = "Test Status: Running";
+        box.style.background = "#dcfce7";
+        box.style.color = "#166534";
+      } else {
+        box.textContent = "Test Status: Stopped";
+        box.style.background = "#fee2e2";
+        box.style.color = "#991b1b";
+      }
+    }
+
+    async function startTest() {
+      await fetch(controlURL, {
+        method: "PUT",
+        body: "true"
+      });
+
+      updateTestStateBox(true);
+    }
+
+    async function stopTest() {
+      await fetch(controlURL, {
+        method: "PUT",
+        body: "false"
+      });
+
+      updateTestStateBox(false);
+    }
+
+    async function loadTestControl() {
+      const response = await fetch(controlURL);
+      const data = await response.json();
+
+      updateTestStateBox(data === true);
     }
 
     const tempChart = new Chart(document.getElementById("tempChart"), {
@@ -505,15 +609,13 @@
       const entries = Object.entries(data)
         .map(([key, value]) => ({ key, ...value }));
 
-      // IMPORTANT:
-      // Newest measurement first.
-      // This uses timestamp from ESP32 first, then measuredAt as backup.
+      // Newest measurement first
       entries.sort((a, b) => getReadingTime(b) - getReadingTime(a));
 
-      // Table: newest readings at the top
+      // Table shows newest readings at the top
       const newest10 = entries.slice(0, 10);
 
-      // Charts: oldest to newest so the graph moves left to right
+      // Charts show oldest to newest from left to right
       const chartItems = newest10.slice().reverse();
 
       const labels = chartItems.map(item => item.measuredAt || "--");
@@ -548,4 +650,26 @@
           <td class="${valueClass("hr", item.heartRate)}">${displayValue(item.heartRate, "bpm")}</td>
           <td class="${valueClass("spo2", item.spo2)}">${displayValue(item.spo2, "%")}</td>
           <td><span class="${pillClass(item.status)}">${item.status ?? "INFO"}</span></td>
-          <td class="alerts-cell">${item.alerts
+          <td class="alerts-cell">${item.alerts ?? item.message ?? "--"}</td>
+        </tr>
+      `).join("");
+    }
+
+    async function loadAll() {
+      try {
+        await loadLatest();
+        await loadHistory();
+        await loadTestControl();
+      } catch (error) {
+        setStatusBanner("CRITICAL", "Error loading Firebase data");
+        console.error(error);
+      }
+    }
+
+    loadAll();
+
+    // Refresh dashboard every 5 seconds
+    setInterval(loadAll, 5000);
+  </script>
+</body>
+</html>
