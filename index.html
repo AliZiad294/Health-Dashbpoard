@@ -777,7 +777,7 @@
 
       const nowEpoch = Math.floor(Date.now() / 1000);
       const lastSeenEpoch = Number(data.lastSeenEpoch || 0);
-      const online = lastSeenEpoch > 0 && nowEpoch - lastSeenEpoch <= 30;
+      const online = lastSeenEpoch > 0 && nowEpoch - lastSeenEpoch <= 8;
 
       document.getElementById("deviceStatus").innerHTML = online
         ? '<span class="pill pill-online">ONLINE</span>'
@@ -1088,7 +1088,7 @@
     loadSettings();
     loadAll();
 
-    setInterval(loadAll, 5000);
+    setInterval(loadAll, 2000);
   </script>
 </body>
 </html>
